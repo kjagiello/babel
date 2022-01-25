@@ -14,7 +14,7 @@ import shlex
 from freezegun import freeze_time
 from datetime import datetime
 from distutils.dist import Distribution
-from distutils.errors import DistutilsOptionError
+from distutils.errors import DistutilsOptionError, DistutilsError
 from distutils.log import _global_log
 from io import StringIO
 import logging
@@ -1207,6 +1207,43 @@ compiling catalog %s to %s
         with open(po_file, "r") as infp:
             catalog = read_po(infp)
             assert len(catalog) == 4  # Catalog was updated
+
+    def test_check(self):
+        template = Catalog()
+        template.add("1")
+        template.add("2")
+        template.add("3")
+        tmpl_file = os.path.join(i18n_dir, 'temp-template.pot')
+        with open(tmpl_file, "wb") as outfp:
+            write_po(outfp, template)
+        po_file = os.path.join(i18n_dir, 'temp1.po')
+
+        self.cli.run(sys.argv + ['update',
+                                 '-l', 'fi_FI',
+                                 '-o', po_file,
+                                 '-i', tmpl_file])
+
+        with open(po_file, "r") as infp:
+            original_catalog = read_po(infp)
+
+        # Run a check without introducing any changes to the template
+        self.cli.run(sys.argv + ['update',
+                                 '--check',
+                                 '-l', 'fi_FI',
+                                 '-o', po_file,
+                                 '-i', tmpl_file])
+
+        # Make a change to the template and expect a failure
+        template.add("4")
+        with open(tmpl_file, "wb") as outfp:
+            write_po(outfp, template)
+
+        with self.assertRaises(DistutilsError):
+            self.cli.run(sys.argv + ['update',
+                                     '--check',
+                                     '-l', 'fi_FI',
+                                     '-o', po_file,
+                                     '-i', tmpl_file])
 
     def test_update_init_missing(self):
         template = Catalog()

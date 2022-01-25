@@ -142,6 +142,21 @@ class Message(object):
     def __ne__(self, other):
         return self.__cmp__(other) != 0
 
+    def is_eq(self, other):
+        def values_to_compare(obj):
+            return (
+                obj.id,
+                obj.string,
+                obj.locations,
+                obj.flags,
+                obj.auto_comments,
+                obj.user_comments,
+                obj.previous_id,
+                obj.lineno,
+                obj.context,
+            )
+        return values_to_compare(self) == values_to_compare(other)
+
     def clone(self):
         return Message(*map(copy, (self.id, self.string, self.locations,
                                    self.flags, self.auto_comments,
@@ -840,3 +855,16 @@ class Catalog(object):
         if context is not None:
             key = (key, context)
         return key
+
+    def is_eq(self, other):
+        assert isinstance(other, Catalog)
+        for key in self._messages.keys() | other._messages.keys():
+            message_1 = self[key]
+            message_2 = other[key]
+            if (
+                message_1 is None
+                or message_2 is None
+                or not message_1.is_eq(message_2)
+            ):
+                return False
+        return dict(self.mime_headers) == dict(other.mime_headers)
